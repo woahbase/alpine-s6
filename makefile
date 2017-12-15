@@ -8,8 +8,8 @@ SVCNAME   := s6
 USERNAME  := woahbase
 
 DOCKERSRC := $(OPSYS)-base#
-DOCKEREPO := $(USERNAME)/$(OPSYS)-$(SVCNAME)
-IMAGETAG  := $(DOCKEREPO):$(ARCH)
+DOCKEREPO := $(OPSYS)-$(SVCNAME)
+IMAGETAG  := $(USERNAME)/$(DOCKEREPO):$(ARCH)
 
 # -- }}}
 
@@ -44,7 +44,7 @@ build :
 	docker build $(BUILDFLAGS) $(CACHEFLAGS) $(PROXYFLAGS) .
 
 clean :
-	docker images | awk '(NR>1) && ($$2!~/none/) {print $$1":"$$2}' | grep $(DOCKEREPO) | xargs -n1 docker rmi
+	docker images | awk '(NR>1) && ($$2!~/none/) {print $$1":"$$2}' | grep "$(USERNAME)/$(DOCKEREPO)" | xargs -n1 docker rmi
 
 logs :
 	docker logs -f docker_$(SVCNAME)
@@ -74,8 +74,7 @@ stop :
 	docker stop -t 2 docker_$(SVCNAME)
 
 test :
-	echo "__TODO__";
-	# docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) which s6-hostname
+	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) bash --version
 
 # -- }}}
 
