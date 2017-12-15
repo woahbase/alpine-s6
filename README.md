@@ -124,16 +124,13 @@ Otherwise to locally build the image for your system.
 ```
 # make ARCH=x86_64 build
 # sets up binfmt if not x86_64
-docker build --rm --force-rm \
+docker build --rm --compress --force-rm \
   --no-cache=true --pull \
   -f ./Dockerfile_x86_64 \
   -t woahbase/alpine-s6:x86_64 \
   --build-arg ARCH=x86_64 \
-  --build-arg BUILD_DATE=2017-12-15T17:15:43Z \
-  --build-arg DOCKEREPO=alpine-s6 \
   --build-arg DOCKERSRC=alpine-base \
-  --build-arg USERNAME=woahbase \
-  --build-arg VCS_REF=$(shell git rev-parse --short HEAD)
+  --build-arg USERNAME=woahbase
 
 # make ARCH=x86_64 test
 docker run --rm -it \
