@@ -1,0 +1,22 @@
+sudo: required
+language: bash
+services: docker
+env:
+  matrix:
+    - ARCH=x86_64
+    - ARCH=armhf
+  global:
+  - secure: PcAY+1URjZIme3mLZi1aADcyHtVSg0RH5NkDlCODyWCANHZaQpbQDqZmapVbwDGdoDuxyYbWSf7kVIttgH1U48DhO2SpWD89doHttidBe4as8deg0V3NrY7G0+yN1L37ou0L1WF8XEO6zMZe9QaFIGDcIZ7eB5vHvP8Sx2NER0K/0X40DTT8mJ3u3TGJjOctItMpwUDNiLjVDFi8sxHzZcxGTcpOgzeLPLkWf1NUW+CNix2Xkf8tePz2ID8ulU2u/pXt3po5jHqXYMbu9zXRO2M5rsvfQRhQoYfzZ57MY/FKMBZt7sHItuqSYRYh0Iv/YY8T4VaTLB+oF0WNSCiHZS2+jOyGt2J46uJiuJ3XQt0dpCFCJT9flldfKTy542UKkMQnPS7Qx0U6a0P4jCa7Rm3Bp1wl/IVnW2vDenSijizSHH13DznMq5dt9mN8AD8qHMsjv5cJo4iF/OYs8wf+i325KHgRoSDYJQU2QXC9IkIZEqvodq/D2jBI+pFzmOZ7u0ybluX9ZO4JKSNdA8loV47VFO1aMyAwCUM2+1H484MwO+xvUZ0gMP1j+RsO1T12rjOPZBxUzddgkYr+Ti1dQjbuM/54Z7EU74sonOSBKzKW/0ddQu99+8p5IweUZTdmIIwNWLdm01h+4Z8gOU18AFrOB9v7eZf+OoSTIHQYXTQ=
+  - secure: Vr//LgoVTyx69AZkSXIYAuGK3U2vtNEI/7J4sW0R1la/dOXqa4ydsk5eAj6X402+VLjj3FobBxSZa/VgVTVQIv2mIfVdZvEnKHQT4DmagQECCWO2uto7Oqqx/PN9ngy7Bsj48OsCSb/HZqQuZ749WUvxnUA/nnTMBy93oeL373FBTUhRoZVSrdvBts9GWjae8UfMA5Xo2peAnAYvF29FBW9B6IX75AY+W2oZgpf1gWCJEu4iYVTHhpnIf5k4njJMiZKS7/Mo5HFBTesOHOz1hjhoCNTtcZv8xxkgw3MSdoCeHhxUs4hgJjTSVokKSljw6z0UqExdIHZ5YgkDnh07SHxrWaWLpcPVm8nRCzOe8hw/lqV2FDSOPdBhzNiOHyW7OnYSDuwOdu9pJM8NtQQnNtgZosy4ll9P9MdfpLVLp6uPS8jGov9T7zmgdR8JYIEvwcyLkunsyq2ge9l2CJGyGzXnOi09sS+CZNyLR9AN9iaOparSofHZdz9ckTLCW56uU21g0/ZiTEtaI/sv7El4ahy9Dmh86u4XM8qMBUlY+6hDdSbfTOgmPco4+ZrMhM8gdOZgiggKj3xTyxNPsbdmQDj99isd03qO7n4hiBXZclbyJINk9QPf5aykTC8j2Ox2vGGoP/sZMmpKQQt/SH0DA/oDwWj29vRGPbc/Y0SgS7g=
+install: true
+before_script:
+- docker --version
+- make --version
+script:
+  - make ARCH=${ARCH} build test
+after_success:
+- docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
+- make ARCH=${ARCH} push
+after_script:
+- docker logout
+- make clean
