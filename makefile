@@ -74,7 +74,8 @@ stop :
 	docker stop -t 2 docker_$(SVCNAME)
 
 test :
-	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) which s6-hostname
+	echo "__TODO__";
+	# docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) which s6-hostname
 
 # -- }}}
 
