@@ -10,5 +10,5 @@ RUN apk add --no-cache --purge -uU curl && \
 	tar xzf /tmp/s6-overlay-armhf.tar.gz -C / && \
 	apk del --purge curl && \
 	rm -rf /var/cache/apk/* /tmp/*
-# ENTRYPOINT ["/init"]
+# ENTRYPOINT ["/init"] # set on test or in child images
 # ENTRYPOINT ["/bin/bash"]

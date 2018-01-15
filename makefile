@@ -77,7 +77,7 @@ stop :
 	docker stop -t 2 docker_$(SVCNAME)
 
 test :
-	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) sh -ec 'bash --version'
+	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) --entrypoint /init $(IMAGETAG) sh -ec 'bash --version'
 
 # -- }}}
 
