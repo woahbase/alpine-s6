@@ -11,6 +11,8 @@ DOCKERSRC := $(OPSYS)-base#
 DOCKEREPO := $(OPSYS)-$(SVCNAME)
 IMAGETAG  := $(USERNAME)/$(DOCKEREPO):$(ARCH)
 
+CNTNAME   := $(SVCNAME) # name for container name : docker_name, hostname : name
+
 # -- }}}
 
 # {{{ -- flags
@@ -30,7 +32,7 @@ BUILDFLAGS := --rm --force-rm --compress -f $(CURDIR)/Dockerfile_$(ARCH) -t $(IM
 
 CACHEFLAGS := --no-cache=true --pull
 MOUNTFLAGS := #
-NAMEFLAGS  := --name docker_$(SVCNAME) --hostname $(SVCNAME)
+NAMEFLAGS  := --name docker_$(CNTNAME) --hostname $(CNTNAME)
 OTHERFLAGS := # -v /etc/hosts:/etc/hosts:ro -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Kolkata
 PORTFLAGS  := #
 PROXYFLAGS := --build-arg http_proxy=$(http_proxy) --build-arg https_proxy=$(https_proxy) --build-arg no_proxy=$(no_proxy)
@@ -52,31 +54,37 @@ clean :
 	docker images | awk '(NR>1) && ($$2!~/none/) {print $$1":"$$2}' | grep "$(USERNAME)/$(DOCKEREPO)" | xargs -n1 docker rmi
 
 logs :
-	docker logs -f docker_$(SVCNAME)
+	docker logs -f docker_$(CNTNAME)
 
 pull :
 	docker pull $(IMAGETAG)
 
 push :
-	docker push $(IMAGETAG)
+	docker push $(IMAGETAG);
+	if [ "$(ARCH)" = "$(HOSTARCH)" ]; \
+	then \
+        LATESTTAG=$$(echo $(IMAGETAG) | sed 's/:$(ARCH)/:latest/'); \
+        docker tag $(IMAGETAG) $${LATESTTAG}; \
+        docker push $${LATESTTAG}; \
+	fi;
 
 restart :
-	docker ps -a | grep 'docker_$(SVCNAME)' -q && docker restart docker_$(SVCNAME) || echo "Service not running.";
+	docker ps -a | grep 'docker_$(CNTNAME)' -q && docker restart docker_$(CNTNAME) || echo "Service not running.";
 
 rm : stop
-	docker rm -f docker_$(SVCNAME)
+	docker rm -f docker_$(CNTNAME)
 
 run :
 	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) $(SHCOMMAND)
 
 rshell :
-	docker exec -u root -it docker_$(SVCNAME) $(SHCOMMAND)
+	docker exec -u root -it docker_$(CNTNAME) $(SHCOMMAND)
 
 shell :
-	docker exec -it docker_$(SVCNAME) $(SHCOMMAND)
+	docker exec -it docker_$(CNTNAME) $(SHCOMMAND)
 
 stop :
-	docker stop -t 2 docker_$(SVCNAME)
+	docker stop -t 2 docker_$(CNTNAME)
 
 test :
 	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) --entrypoint /init $(IMAGETAG) sh -ec 'bash --version'
