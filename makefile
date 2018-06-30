@@ -1,6 +1,6 @@
 # {{{ -- meta
 
-HOSTARCH  := x86_64# on travis.ci
+HOSTARCH  := $(shell uname -m | sed "s_armv7l_armhf_")# x86_64 on travis.ci
 ARCH      := $(shell uname -m | sed "s_armv7l_armhf_")# armhf/x86_64 auto-detect on build and run
 OPSYS     := alpine
 SHCOMMAND := /bin/bash
@@ -17,10 +17,13 @@ CNTNAME   := $(SVCNAME) # name for container name : docker_name, hostname : name
 
 # {{{ -- flags
 
-BUILDFLAGS := --rm --force-rm --compress -f $(CURDIR)/Dockerfile_$(ARCH) -t $(IMAGETAG) \
+BUILDFLAGS := --rm --force-rm --compress \
+	-f $(CURDIR)/Dockerfile_$(ARCH) \
+	-t $(IMAGETAG) \
 	--build-arg ARCH=$(ARCH) \
 	--build-arg DOCKERSRC=$(DOCKERSRC) \
 	--build-arg USERNAME=$(USERNAME) \
+	--label online.woahbase.source-image=$(DOCKERSRC) \
 	--label org.label-schema.build-date=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
 	--label org.label-schema.name=$(DOCKEREPO) \
 	--label org.label-schema.url="https://woahbase.online/" \
@@ -28,14 +31,16 @@ BUILDFLAGS := --rm --force-rm --compress -f $(CURDIR)/Dockerfile_$(ARCH) -t $(IM
 	--label org.label-schema.schema-version="1.0" \
 	--label org.label-schema.vcs-ref=$(shell git rev-parse --short HEAD) \
 	--label org.label-schema.vcs-url="https://github.com/$(USERNAME)/$(DOCKEREPO)" \
-	--label org.label-schema.vendor=$(USERNAME)
+	--label org.label-schema.vendor=$(USERNAME) \
+	--build-arg http_proxy=$(http_proxy) \
+	--build-arg https_proxy=$(https_proxy) \
+	--build-arg no_proxy=$(no_proxy)
 
 CACHEFLAGS := --no-cache=true --pull
 MOUNTFLAGS := #
 NAMEFLAGS  := --name docker_$(CNTNAME) --hostname $(CNTNAME)
 OTHERFLAGS := # -v /etc/hosts:/etc/hosts:ro -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Kolkata
 PORTFLAGS  := #
-PROXYFLAGS := --build-arg http_proxy=$(http_proxy) --build-arg https_proxy=$(https_proxy) --build-arg no_proxy=$(no_proxy)
 
 RUNFLAGS   := -c 64 -m 32m # -e PGID=$(shell id -g) -e PUID=$(shell id -u)
 
@@ -43,12 +48,12 @@ RUNFLAGS   := -c 64 -m 32m # -e PGID=$(shell id -g) -e PUID=$(shell id -u)
 
 # {{{ -- docker targets
 
-all : run
+all : shell
 
 build :
 	echo "Building for $(ARCH) from $(HOSTARCH)";
 	if [ "$(ARCH)" != "$(HOSTARCH)" ]; then make regbinfmt ; fi;
-	docker build $(BUILDFLAGS) $(CACHEFLAGS) $(PROXYFLAGS) .
+	docker build $(BUILDFLAGS) $(CACHEFLAGS) .
 
 clean :
 	docker images | awk '(NR>1) && ($$2!~/none/) {print $$1":"$$2}' | grep "$(USERNAME)/$(DOCKEREPO)" | xargs -n1 docker rmi
@@ -74,13 +79,13 @@ restart :
 rm : stop
 	docker rm -f docker_$(CNTNAME)
 
-run :
+shell :
 	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) $(SHCOMMAND)
 
-rshell :
+rdebug :
 	docker exec -u root -it docker_$(CNTNAME) $(SHCOMMAND)
 
-shell :
+debug :
 	docker exec -it docker_$(CNTNAME) $(SHCOMMAND)
 
 stop :
