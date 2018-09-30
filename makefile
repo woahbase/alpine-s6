@@ -48,7 +48,7 @@ RUNFLAGS   := -c 64 -m 32m # -e PGID=$(shell id -g) -e PUID=$(shell id -u)
 
 # {{{ -- docker targets
 
-all : shell
+all : run 
 
 build :
 	echo "Building for $(ARCH) from $(HOSTARCH)";
@@ -78,6 +78,8 @@ restart :
 
 rm : stop
 	docker rm -f docker_$(CNTNAME)
+
+run : shell
 
 shell :
 	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) $(IMAGETAG) $(SHCOMMAND)
