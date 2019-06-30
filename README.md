@@ -1,23 +1,25 @@
-[![build status][251]][232] [![commit][255]][231] [![version:x86_64][256]][235] [![size:x86_64][257]][235] [![version:armhf][258]][236] [![size:armhf][259]][236]
+[![build status][251]][232] [![commit][255]][231] [![version:x86_64][256]][235] [![size:x86_64][257]][235] [![version:armhf][258]][236] [![size:armhf][259]][236] [![version:armv7l][260]][237] [![size:armv7l][261]][237] [![version:aarch64][262]][238] [![size:aarch64][263]][238]
 
 ## [Alpine-S6][234]
 #### Container for Alpine Linux + S6 Init System
 ---
 
-This [image][233] serves as the base image for
-applications / services that need an init system to launch the processes and
+This [image][233] serves as the base image for applications
+/ services that need an init system to launch the processes and
 pass the proper signals when interacted with the containers.
 
-Based on [Alpine Linux][131] from my [alpine-base][132] image with the [s6][133] init system
-[overlayed][134] on it.
+Based on [Alpine Linux][131] from my [alpine-base][132] image with
+the [s6][133] init system [overlayed][134] on it.
 
 The image is tagged respectively for the following architectures,
 * **armhf**
+* **armv7l**
+* **aarch64**
 * **x86_64** ( retagged as the `latest` )
 
-**armhf** builds have embedded binfmt_misc support and contain the
+**non-x86_64** builds have embedded binfmt_misc support and contain the
 [qemu-user-static][105] binary that allows for running it also inside
-an x64 environment that has it.
+an x86_64 environment that has it.
 
 ---
 #### Get the Image
@@ -145,9 +147,7 @@ for other architectures.]
 docker build --rm --compress --force-rm \
   --no-cache=true --pull \
   -f ./Dockerfile_x86_64 \
-  --build-arg ARCH=x86_64 \
-  --build-arg DOCKERSRC=alpine-base \
-  --build-arg USERNAME=woahbase \
+  --build-arg DOCKERSRC=woahbase/alpine-base:x86_64 \
   -t woahbase/alpine-s6:x86_64 \
   .
 ```
@@ -204,6 +204,8 @@ Maintained by [WOAHBase][204].
 [234]: https://woahbase.online/#/images/alpine-s6
 [235]: https://microbadger.com/images/woahbase/alpine-s6:x86_64
 [236]: https://microbadger.com/images/woahbase/alpine-s6:armhf
+[237]: https://microbadger.com/images/woahbase/alpine-s6:armv7l
+[238]: https://microbadger.com/images/woahbase/alpine-s6:aarch64
 
 [251]: https://travis-ci.org/woahbase/alpine-s6.svg?branch=master
 
@@ -214,3 +216,9 @@ Maintained by [WOAHBase][204].
 
 [258]: https://images.microbadger.com/badges/version/woahbase/alpine-s6:armhf.svg
 [259]: https://images.microbadger.com/badges/image/woahbase/alpine-s6:armhf.svg
+
+[260]: https://images.microbadger.com/badges/version/woahbase/alpine-s6:armv7l.svg
+[261]: https://images.microbadger.com/badges/image/woahbase/alpine-s6:armv7l.svg
+
+[262]: https://images.microbadger.com/badges/version/woahbase/alpine-s6:aarch64.svg
+[263]: https://images.microbadger.com/badges/image/woahbase/alpine-s6:aarch64.svg
