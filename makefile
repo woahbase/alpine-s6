@@ -97,7 +97,7 @@ stop :
 	docker stop -t 2 docker_$(CNTNAME)
 
 test :
-	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) --entrypoint /init $(IMAGETAG) sh -ec 'bash --version; s6 --version'
+	docker run --rm -it $(NAMEFLAGS) $(RUNFLAGS) $(PORTFLAGS) $(MOUNTFLAGS) $(OTHERFLAGS) --entrypoint /init $(IMAGETAG) sh -ec 'bash --version;'
 
 # -- }}}
 
