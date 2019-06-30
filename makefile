@@ -45,7 +45,7 @@ NAMEFLAGS  := --name docker_$(CNTNAME) --hostname $(CNTNAME)
 OTHERFLAGS := # -v /etc/hosts:/etc/hosts:ro -v /etc/localtime:/etc/localtime:ro -e TZ=Asia/Kolkata
 PORTFLAGS  := #
 
-RUNFLAGS   := -c 64 -m 32m
+RUNFLAGS   := -c 64 -m 64m
 
 # -- }}}
 
