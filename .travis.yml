@@ -1,5 +1,5 @@
 os: linux
-dist: trusty
+dist: xenial
 cache: false
 sudo: required
 language: bash
@@ -7,16 +7,15 @@ services: docker
 env:
   matrix:
   - ARCH=x86_64
+  - ARCH=aarch64
+  - ARCH=armv7l
   - ARCH=armhf
-  global:
-  - secure: S+IuNFaz7hNZQ0UktPORKIEMFzhJ4tPZ4JGBC/jRQkyczSmsZ/o85svwztOxpw4e9lH0ydl0Lzcsh2wm7Ew4cG5H46yuL/SIwEa8zjRpUDvr2uYMvlVh9D0+gR837uTvwgKXh3KrQjeLlOjfLzUxiPbQiw1rDwnGbQMg7dZpChoFqpbk4dz9ZWjLiBghUzNbnzUHNF0D/sEZbp9BePWZ3BbhvjCARD41zC8Za29ZNVShTkpozmsvbvzvmwwPN9JktCvW3Df3+WCrkbFBLaC9SiyA3kupFGrXH2kqz2vwkuG2AyjPEjVQTxPfIEqLDuq3Gx4rZ50jkkHfeugzJuugl0UUF0xuh8KuhpgxWEs497Qr47l4ED54GIFtDMBsAcSDcEkLeZ4v7aCBq/5dK4aDo5RudtUh2lDY/MsDRkWymRAm9NY1lZr/+Nzuqosm/MlZf5frpy6RLESUfP6ymwX/mMWkKwB6Ng2F8R2luFbIdIF4bNgP0c1stAupWBgRImdMGMBkNDcORxKGLoGEtezrmshZuw8wdSL0b4UyTq9gjDW20Dfkj6+ciIGQfvOK0F/UfCMPCqFj/ozxgKCO6BmpIbNi3fK1Wo6xlT5oKvYt4C4YuJfEVOMEmswfnf+uQdd601cTP9nnXSL+qUATeT7GylCkFcSkzQ3NRFV/jo6Yqvs=
-  - secure: on+64C0ZQA9R7a2YoxnJO67mrbnwaFN7/KPWIQnd11Xno5bj2Hm1OUO6EEmyiWJvusSMtGRpwXFYHWevI1MIZ38v2lcBq+gIqoh+xMeJEH3/T7h+j3/7toHspXNzSOq9akZGJFaWwn9VnJ42VdMovqhev/KUwPywSU30JSH5eaAQM3boP/TBkQ9oEs7F/d1rk536qNM781o8MCNbJtJG+1uA6kmrDDJYr442jVMsE7LIEuXRkjz04RaQZD7bcVdw6Ob6rrL57OFGGXjILeDEgg5ARd8FJZ1Dkw6BjndrZqMkf+DTKBFEu3+T9qeFUAYxjqQt3BxyB+4zLDD6dn4+REfCfGZ4c9JP+vBwbyD49FChVohzHj18nblmOfM8XjDCtmEPFETw3IMH3WBAr04W1gN64tv3RQy+DRBon5tW3oHqQS+J4YHwnITsTWnLxA3r2BiE1on4IkA1pOA0/f/BqDV5v7o+27+FEhYTnY53iLQ+TGtEBanG1MspQSw5pSpd+TFLjsJoneI0KmRb1rQui/99SvDoFMS+7IY2XoMx3/SRqC+hd0BaDUUY3u7aruZH1HKV8NYGtxj1W1bIPdY5+ePwmD1uZcvfp3UDfR5mEaIBNZo0MTVCMZ8AIJdfykigbIIar6KjWnlCSnZkm/c4C1pM7rRw5EvQtr8atnwy/mk=
-install: true
 before_script:
+- uname -a
 - docker --version
 - make --version
 script:
-- make ARCH=${ARCH} build test
+- make ARCH=${ARCH} BUILD_NUMBER=${TRAVIS_BUILD_NUMBER} BRANCH=${TRAVIS_BRANCH} build test
 after_success:
 - docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}
 - make ARCH=${ARCH} push

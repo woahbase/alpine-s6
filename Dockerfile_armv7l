@@ -6,8 +6,8 @@ RUN set -xe \
     && apk add --no-cache --purge -uU curl \
     && VERSION=$(curl -SL https://api.github.com/repos/just-containers/s6-overlay/releases/latest | awk '/tag_name/{print $4;exit}' FS='[""]' | sed -e 's_v__') \
     && echo "using s6 version: $VERSION" \
-	&& curl -o /tmp/s6-overlay-armhf.tar.gz -jkSL https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-armhf.tar.gz \
-	&& tar xzf /tmp/s6-overlay-armhf.tar.gz -C / \
+	&& curl -o /tmp/s6-overlay-arm.tar.gz -jkSL https://github.com/just-containers/s6-overlay/releases/download/v${VERSION}/s6-overlay-arm.tar.gz \
+	&& tar xzf /tmp/s6-overlay-arm.tar.gz -C / \
 	&& apk del --purge curl \
 	&& rm -rf /var/cache/apk/* /tmp/*
 # ENTRYPOINT ["/init"] # set on test or in child images
