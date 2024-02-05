@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bash
+set -e
+
+# S6_NEEDED_PACKAGES=""; install these packages if specified at runtime
+if [ -n "${S6_NEEDED_PACKAGES}" ];
+then
+    apk add --no-cache -U ${S6_NEEDED_PACKAGES};
+fi;
+
