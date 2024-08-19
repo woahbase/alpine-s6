@@ -1,8 +1,10 @@
 #!/usr/bin/with-contenv bash
 set -e
 
+vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+
 # stolen from: https://github.com/linuxserver/docker-baseimage-alpine/blob/master/root/etc/cont-init.d/01-envfile
-# Export env vars from /run/s6/container_environment/SECRET__<varname> files
+# Export env vars from /run/s6/container_environment/SECRET__<varname> files (double underscores)
 # Requires with-contenv
 if find /run/s6/container_environment/SECRET__* -maxdepth 1 > /dev/null 2>&1; then
     for FILENAME in /run/s6/container_environment/*;
@@ -14,9 +16,9 @@ if find /run/s6/container_environment/SECRET__* -maxdepth 1 > /dev/null 2>&1; th
             then
                 FILESTRIP=${FILENAME//SECRET__/};
                 cat "${SECRETFILE}" >"${FILESTRIP}";
-                echo "[file-to-env] ${FILESTRIP##*/} set from ${FILENAME##*/}";
+                vecho "${FILESTRIP##*/} set from ${FILENAME##*/}";
             else
-                echo "[file-to-env] cannot find secret in ${FILENAME##*/}";
+                vecho "Cannot find secret in ${FILENAME##*/}";
             fi;
         fi;
     done;

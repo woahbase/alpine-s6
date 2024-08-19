@@ -1,14 +1,47 @@
 #!/usr/bin/with-contenv bash
 set -e
 
+vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+
+# update in-container group gid(s) to match with gid in host
+# if set via environment variables HGID_<groupname>
+# if group does not exist, create it
+if find /run/s6/container_environment/HGID_* -maxdepth 1 > /dev/null 2>&1;
+then
+    for FILENAME in /run/s6/container_environment/*;
+    do
+        if [[ "${FILENAME##*/}" == "HGID_"* ]];
+        then
+            BASENAME="${FILENAME##*/}";
+            GROUPNAME="${BASENAME//HGID_/}";
+            groupname="${GROUPNAME,,}";
+            gid="$(cat ${FILENAME})";
+
+            if [ -n "${gid}" ] \
+            && [ "${gid}" -eq "${gid}" ] 2>/dev/null \
+            && [ "${gid}" -gt "0" ]; # gid must be non-zero positive int
+            then
+                if getent group "${groupname}" >/dev/null 2>&1;
+                then
+                    groupmod -o -g "${gid}" "${groupname}";
+                    vecho "${groupname}(${gid}) updated from ${FILENAME##*/}";
+                else
+                    groupadd -o -r -g "${gid}" "${groupname}";
+                    vecho "${groupname}(${gid}) created from ${FILENAME##*/}";
+                fi;
+            else
+                vecho "${FILENAME##*/}=${gid} must be a non-zero positive integer.";
+            fi;
+        fi;
+    done;
+fi;
+
 # fix user id/gid/homedir
 PUID=${PUID:-1000};
 PGID=${PGID:-1000};
 # S6_USER="${S6_USER:-alpine}"; # set in Dockerfile
 # S6_USERGROUPS=""; # comma-separated groups list eg. root,docker,wheel . passed at runtime, if required
 # S6_USERPASS=""; # passed at runtime, if required
-# S6_USERCMD="${S6_USERCMD:-/bin/bash}"; # passed at runtime, generates a svc to exec that command
-# S6_USERCWD="${S6_USERCWD:-/home/alpine}"; # passed at runtime,
 
 if [ -n "${S6_USER}" ] && [ "${S6_USER}" != "root" ]; # unset this to disable the following block
 then
@@ -17,45 +50,51 @@ then
     if id "${S6_USER}" >/dev/null 2>&1;
     then
         # if PUID/PGID does not match, update them
-        if [ ${PUID} -ne $(id -u ${S6_USER}) ] || [ ${PGID} -ne $(id -g ${S6_USER}) ];
+        if [ ${PUID} -ne $(id -u ${S6_USER}) ];
         then
-            echo "Updating PUID(${PUID})/PGID(${PGID}) for ${S6_USER}($(id -u $S6_USER))/($(id -g $S6_USER))";
-            groupmod -o -g "$PGID" ${S6_USER};
+            vecho "Updating PUID(${PUID}) for ${S6_USER}($(id -u $S6_USER))";
             usermod  -o -u "$PUID" ${S6_USER};
         # else
-        #     echo "PUID/PGID matches";
+        #     vecho "PUID matches";
+        fi;
+        if [ ${PGID} -ne $(id -g ${S6_USER}) ];
+        then
+            vecho "Updating PGID(${PGID}) for ${S6_USER}($(id -g $S6_USER))";
+            groupmod -o -g "$PGID" ${S6_USER};
+        # else
+        #     vecho "PGID matches";
         fi;
 
         # if HOMEDIR does not match, update it
         if [ "$(getent passwd ${S6_USER} | cut -d: -f6)" != "${S6_USERHOME}" ];
         then
-            echo "Updating HOMEDIR for ${S6_USER}(${S6_USERHOME})";
+            vecho "Updating HOMEDIR for ${S6_USER}(${S6_USERHOME})";
             mkdir -p ${S6_USERHOME};
             usermod -d ${S6_USERHOME} ${S6_USER};
         # else
-        #     echo "No change in S6 user homedir";
+        #     vecho "No change in S6 user homedir";
         fi;
 
         # fix perms on homedir
         chown ${PUID}:${PGID} ${S6_USERHOME}; # add -R?
     else # create user
-        echo "Creating user ${S6_USER}(${PUID}/${PGID}) with user-home at ${S6_USERHOME}";
+        vecho "Creating user ${S6_USER}(${PUID}/${PGID}) with user-home at ${S6_USERHOME}";
         addgroup -g ${PGID} -S ${S6_USER};
         adduser -u ${PUID} -G ${S6_USER} -h ${S6_USERHOME} -D ${S6_USER}
     fi;
 
-    # if USERGROUPS is set, add USER to groups, groups MUST exist
+    # if USERGROUPS is set, add USER to comma-separated groups, groups MUST exist
     if [ -n "${S6_USERGROUPS}" ];
     then
 	    usermod -a -G ${S6_USERGROUPS} ${S6_USER};
-        echo "Added ${S6_USER}(${PUID}/${PGID}) to groups: ${S6_USERGROUPS}.";
+        vecho "Added ${S6_USER}(${PUID}/${PGID}) to groups: ${S6_USERGROUPS}.";
     fi;
 
     # if USERPASS is set, update password for USER
     if [ -n "${S6_USERPASS}" ];
     then
         echo  "${S6_USER}:${S6_USERPASS}" | chpasswd;
-        echo "Set password for ${S6_USER}(${PUID}/${PGID}).";
+        vecho "Set password for ${S6_USER}(${PUID}/${PGID}).";
     fi;
 fi;
 

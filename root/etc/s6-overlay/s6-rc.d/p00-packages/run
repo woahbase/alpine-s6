@@ -1,9 +1,12 @@
 #!/usr/bin/with-contenv bash
 set -e
 
+vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+
 # S6_NEEDED_PACKAGES=""; install these packages if specified at runtime
 if [ -n "${S6_NEEDED_PACKAGES}" ];
 then
+    vecho "Installing apk packages: ${S6_NEEDED_PACKAGES}";
     apk add --no-cache -U ${S6_NEEDED_PACKAGES};
 fi;
 

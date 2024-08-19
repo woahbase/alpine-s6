@@ -17,7 +17,7 @@ BUILDDATE := $(shell date -u +%Y%m%d)
 HOSTARCH  ?= $(call get_os_platform)
 # target architecture on build and run, defaults to host architecture
 ARCH      ?= $(HOSTARCH)
-IMAGEBASE ?= $(if $(filter scratch,$(SRCIMAGE)),scratch,$(REGISTRY)/$(ORGNAME)/$(OPSYS)-$(SRCIMAGE):$(ARCH))
+IMAGEBASE ?= $(if $(filter scratch,$(SRCIMAGE)),scratch,$(REGISTRY)/$(ORGNAME)/$(OPSYS)-$(SRCIMAGE):$(if $(SRCTAG),$(SRCTAG),$(ARCH)))
 IMAGETAG  ?= $(REGISTRY)/$(ORGNAME)/$(REPONAME):$(ARCH)
 CNTNAME   := docker_$(SVCNAME)
 CNTSHELL  := /bin/bash
@@ -43,8 +43,8 @@ LABELFLAGS ?= \
 	--label online.woahbase.build-date=$(BUILDDATE) \
 	--label online.woahbase.build-number=$${BUILDNUMBER:-undefined} \
 	--label online.woahbase.s6-version=$(S6VERSION) \
-	--label online.woahbase.source-image="$(if $(filter scratch,$(SRCIMAGE)),scratch,$(OPSYS)-$(SRCIMAGE):$(ARCH))" \
-	--label org.opencontainers.image.base.name="$(if $(filter scratch,$(SRCIMAGE)),scratch,docker.io/$(ORGNAME)/$(OPSYS)-$(SRCIMAGE):$(ARCH))" \
+	--label online.woahbase.source-image="$(if $(filter scratch,$(SRCIMAGE)),scratch,$(OPSYS)-$(SRCIMAGE):$(if $(SRCTAG),$(SRCTAG),$(ARCH)))" \
+	--label org.opencontainers.image.base.name="$(if $(filter scratch,$(SRCIMAGE)),scratch,docker.io/$(ORGNAME)/$(OPSYS)-$(SRCIMAGE):$(if $(SRCTAG),$(SRCTAG),$(ARCH)))" \
 	--label org.opencontainers.image.created=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
 	--label org.opencontainers.image.documentation="$(if $(DOC_URL),$(DOC_URL),https://woahbase.online/\#/images)/$(REPONAME)" \
 	--label org.opencontainers.image.revision=$(shell git rev-parse --short HEAD) \
@@ -83,7 +83,11 @@ BUILDERFLAGS ?= \
 	#
 
 # runtime flags
-MOUNTFLAGS := #
+MOUNTFLAGS := \
+	# -v $(CURDIR)/secret_var_test:/secrets/secret_var_test:ro \
+	# -v /etc/hosts:/etc/hosts:ro \
+	# -v /etc/localtime:/etc/localtime:ro \
+	#
 PORTFLAGS  := #
 PUID       := $(shell id -u)
 PGID       := $(shell id -g)# gid 100(users) usually pre exists
@@ -96,15 +100,17 @@ OTHERFLAGS := \
 	-e PUID=$(PUID) \
 	# --cap-add LINUX_IMMUTABLE \
 	# --workdir /home/alpine \
+	# -e S6_VERBOSITY=0 \
 	# -e S6_NEEDED_PACKAGES="htop iftop" \
 	# -e S6_USER=alpine \
+	# -e S6_USERGROUPS=tty,video \
 	# -e S6_USERHOME=/home/alpine \
 	# -e S6_USERPASS=insecurebydefault \
+	# -e HGID_VIDEO=995 \
+	# -e HGID_test=5005 \
+	# -e S6_USERGROUPS=test,video \
 	# -e SECRET__VAR_TEST="/secrets/secret_var_test" \
-	# -v $(CURDIR)/secret_var_test:/secrets/secret_var_test:ro \
 	# -e TZ=Asia/Kolkata \
-	# -v /etc/hosts:/etc/hosts:ro \
-	# -v /etc/localtime:/etc/localtime:ro \
 	#
 # all runtime flags combined here
 RUNFLAGS   := \
