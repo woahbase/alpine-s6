@@ -99,6 +99,7 @@ OTHERFLAGS := \
 	-e PGID=$(PGID) \
 	-e PUID=$(PUID) \
 	# --cap-add LINUX_IMMUTABLE \
+	# --user $(PUID):$(PGID) \
 	# --workdir /home/alpine \
 	# -e S6_VERBOSITY=0 \
 	# -e S6_NEEDED_PACKAGES="htop iftop" \

@@ -2,6 +2,7 @@
 set -e
 
 vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
 
 # update in-container group gid(s) to match with gid in host
 # if set via environment variables HGID_<groupname>
@@ -42,6 +43,7 @@ PGID=${PGID:-1000};
 # S6_USER="${S6_USER:-alpine}"; # set in Dockerfile
 # S6_USERGROUPS=""; # comma-separated groups list eg. root,docker,wheel . passed at runtime, if required
 # S6_USERPASS=""; # passed at runtime, if required
+
 
 if [ -n "${S6_USER}" ] && [ "${S6_USER}" != "root" ]; # unset this to disable the following block
 then

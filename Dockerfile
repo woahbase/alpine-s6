@@ -20,6 +20,8 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6VERSION
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6VERSION}/s6-overlay-symlinks-arch.tar.xz /tmp
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6VERSION}/s6-overlay-symlinks-noarch.tar.xz /tmp
 #
+COPY root/ /
+#
 RUN set -xe \
     && apk add --no-cache --purge -uU shadow tar xz \
     && echo "using s6: ${S6VERSION} ${S6ARCH}" \
@@ -31,9 +33,8 @@ RUN set -xe \
     && sed -i -e 's/^root::/root:!:/' /etc/shadow \
     && addgroup -g ${PGID} -S ${S6_USER} \
     && adduser -u ${PUID} -G ${S6_USER} -h /home/${S6_USER} -s /bin/false -D ${S6_USER} \
+    && sed -i -e "s/@VERSION@/${S6VERSION}/g" /usershell \
     && rm -rf /var/cache/apk/* /tmp/*
-#
-COPY root/ /
 #
 ENTRYPOINT ["/init"]
 # or

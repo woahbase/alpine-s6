@@ -36,29 +36,32 @@ if read _ 2>/dev/null <&3 ; then
   exec 3<&-
 fi
 
-
 # Now we're good: s6-overlay-suexec is accessible via PATH, as are
 # all our binaries.
-# Run preinit as root, then run stage0 as the container's user (can be
-# root, can be a normal user).
-# exec s6-overlay-suexec \
-#   ' /package/admin/s6-overlay-3.2.0.0/libexec/preinit' \
-#   '' \
-#   /package/admin/s6-overlay-3.2.0.0/libexec/stage0 \
-#   "$@"
 
-# # Instead of above,
-# # preinit and stage0 is still run as root
-# # but force drop privileges to $S6_USER afterwards
-# # applies to CMD set in Dockerfile
-# # or any command passed from outside container
+if [ "X${EUID}" != "X0" ]; # container started as non-root user
+then
+    # Run preinit as root, then run stage0 as the container's user (can be
+    # root, can be a normal user).
+    exec s6-overlay-suexec \
+    ' /package/admin/s6-overlay-@VERSION@/libexec/preinit' \
+    '' \
+    /package/admin/s6-overlay-@VERSION@/libexec/stage0 \
+    "$@";
 
-export HOME=${S6_USERHOME:-/home/$S6_USER}
+else
+    # # Instead of above,
+    # # preinit and stage0 is still run as root
+    # # but force drop privileges to $S6_USER afterwards
+    # # applies to CMD set in Dockerfile
+    # # or any command passed from outside container
+    export HOME=${S6_USERHOME:-/home/$S6_USER}
 
-exec s6-overlay-suexec \
-  ' /package/admin/s6-overlay-3.2.0.0/libexec/preinit' \
-  '' \
-  /package/admin/s6-overlay-3.2.0.0/libexec/stage0 \
-  with-contenv \
-  s6-setuidgid "${S6_USER:-alpine}" \
-  exec "$@"
+    exec s6-overlay-suexec \
+    ' /package/admin/s6-overlay-@VERSION@/libexec/preinit' \
+    '' \
+    /package/admin/s6-overlay-@VERSION@/libexec/stage0 \
+    with-contenv \
+    s6-setuidgid "${S6_USER:-alpine}" \
+    exec "$@";
+fi
