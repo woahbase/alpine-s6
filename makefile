@@ -243,7 +243,10 @@ push : BUILDDATETAG ?= $(subst $(ARCH),$(ARCH)$(if $(S6VERSION),_$(S6VERSION),)_
 push : ## push image
 	if [ -z "$(SKIP_$(ARCH))" ]; \
 	then \
-		docker push $(IMAGETAG); \
+		if [ -z "$(SKIP_LATESTTAG)" ]; \
+		then \
+			docker push $(IMAGETAG); \
+		fi; \
 		if [ -z "$(SKIP_VERSIONTAG)" ] && [ -n "$(S6VERSION)" ];\
 		then \
 			echo "Tagging $(VERSIONTAG)"; \
@@ -277,8 +280,11 @@ push_registry_% : ## push image to a different registry
 		then \
 			echo "Tagging $(REGDSTTAG)"; \
 			docker tag $(IMAGETAG) $(REGDSTTAG); \
+			if [ -z "$(SKIP_LATESTTAG)" ]; \
+			then \
+				docker push $(REGDSTTAG); \
+			fi; \
 		fi; \
-		docker push $(REGDSTTAG); \
 		if [ -z "$(SKIP_VERSIONTAG)" ] && [ -n "$(S6VERSION)" ];\
 		then \
 			echo "Tagging $(REGDSTVERSIONTAG)"; \

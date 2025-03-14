@@ -39,7 +39,7 @@ fi
 # Now we're good: s6-overlay-suexec is accessible via PATH, as are
 # all our binaries.
 
-if [ "X${EUID}" != "X0" ]; # container started as non-root user
+if [ "X$(id -u)" != "X0" ]; # container started as non-root user
 then
     # Run preinit as root, then run stage0 as the container's user (can be
     # root, can be a normal user).
