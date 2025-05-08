@@ -101,17 +101,32 @@ OTHERFLAGS := \
 	# --cap-add LINUX_IMMUTABLE \
 	# --user $(PUID):$(PGID) \
 	# --workdir /home/alpine \
+	# -e TZ=Asia/Kolkata \
+	# /
 	# -e S6_VERBOSITY=0 \
 	# -e S6_NEEDED_PACKAGES="htop iftop" \
 	# -e S6_USER=alpine \
 	# -e S6_USERGROUPS=tty,video \
 	# -e S6_USERHOME=/home/alpine \
 	# -e S6_USERPASS=insecurebydefault \
+	# /
 	# -e HGID_VIDEO=995 \
 	# -e HGID_test=5005 \
 	# -e S6_USERGROUPS=test,video \
+	# /
 	# -e SECRET__VAR_TEST="/secrets/secret_var_test" \
-	# -e TZ=Asia/Kolkata \
+	# /
+	# -e FILEURL_readme="https://raw.githubusercontent.com/woahbase/alpine-s6/refs/heads/master/README.md|/srv/" \
+	# -e FILEURL_readme="https://raw.githubusercontent.com/woahbase/alpine-s6/refs/heads/master/README.md|/srv/dont-readme.md" \
+	# -e FILEURL_src_targz="https://github.com/woahbase/alpine-s6/archive/refs/heads/master.tar.gz|/srv/" \
+	# -e FILEURL_src_targz="https://github.com/woahbase/alpine-s6/archive/refs/heads/master.tar.gz|/srv/master.tar.gz" \
+	# -e S6_FILEURL_DEFDIR=/default/ \
+	# -e S6_FILEURL_DEFOWNER="root:root" \
+	# -e S6_FILEURL_DEFPERMS="0755" \
+	# -e S6_FILEURL_DELIMITER="|" \
+	# -e S6_FILEURL_FIXOWNER_UNPACK=1 \
+	# -e S6_FILEURL_STRIPCOMPONENTS=0 \
+	# -e S6_FILEURL_TMPDIR=/tmp/ \
 	#
 # all runtime flags combined here
 RUNFLAGS   := \

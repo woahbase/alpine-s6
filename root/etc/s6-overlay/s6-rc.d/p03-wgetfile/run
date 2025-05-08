@@ -1,0 +1,171 @@
+#!/usr/bin/with-contenv bash
+set -e
+
+vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
+
+# for every FILEURL_envvariable
+# fetch url to specified filepath (both in value separated by |)
+# create parent dir if not exists or not . or /
+# unpack if file is an archive (skip if filepath is also an archive)
+if find /run/s6/container_environment/FILEURL_* -maxdepth 1 > /dev/null 2>&1;
+then
+    defdir="${S6_FILEURL_DEFDIR:-/defaults/}";
+    # must begin and end with a /
+    if [[ "${defdir:0:1}" != "/" ]]; then defdir="/${defdir}"; fi;
+    if [[ "${defdir:0-1}" != "/" ]]; then defdir="${defdir}/"; fi;
+
+    tmpdir="${S6_FILEURL_TMPDIR:-/tmp/}";
+    # must begin and end with a /
+    if [[ "${tmpdir:0:1}" != "/" ]]; then tmpdir="/${tmpdir}"; fi;
+    if [[ "${tmpdir:0-1}" != "/" ]]; then tmpdir="${tmpdir}/"; fi;
+
+    _getfile () {
+        local url="${1:? \$1 url is required}";
+        local fp="${2:? \$2 filepath is required}";
+        local nm="$(basename ${url})"; # file name in url
+
+        _mkdir "${tmpdir}";
+        ret=${S6_FILEURL_RETRIES:-5}; # wait for upto 5+(5x5)=30 seconds
+
+        # vecho "${url} => ${tmpdir}${nm}";
+        until wget -qO "${tmpdir}${nm}" "${url}";
+        do
+            if [[ ret -eq 0 ]];
+            then
+                vecho "Failed to fetch ${url}. Exiting.";
+                exit 1;
+            fi;
+            sleep 5;
+            ((ret--));
+        done;
+
+        # don't move temporary files
+        if [[ "${fp}" != "${tmpdir}${nm}" ]];
+        then
+            # vecho "${tmpdir}${nm} => ${fp}";
+            mv "${tmpdir}${nm}" "${fp}";
+        fi;
+        vecho "Get ${url} => ${fp}";
+    }
+
+    _mkdir () {
+        local dp="${1:? \$1 dirpath is required}";
+        if [ -n "${dp}" ] \
+        && [[ "${dp}" != "." ]] \
+        && [[ "${dp}" != "/" ]];
+        then mkdir -p "${dp}" || exit 1;
+        fi;
+    }
+
+    _setperm () {
+        local fp="${1:? \$1 filepath is required}";
+        local defownr="${S6_FILEURL_DEFOWNER:-root:root}"; # default owner/group for downloaded file
+        chown ${defownr} "${fp}";
+        local defperm="${S6_FILEURL_DEFPERMS:-0644}"; # default permission for downloaded file
+        chmod ${defperm} "${fp}";
+    }
+
+    _unpack () {
+        local fp="${1:? \$1 filepath is required}";
+        local dp="${2:? \$2 destpath is required}";
+        local defownr="${S6_FILEURL_DEFOWNER:-root:root}"; # default owner for downloaded file
+        if [ -f "${fp}" ];
+        then
+            tar -xf "${fp}" -C "${dp}" --strip-components=${S6_FILEURL_STRIPCOMPONENTS:-0} || exit 1;
+            vecho "Unpack ${fp} => ${dp}";
+            rm -f "${fp}";
+
+            # unpacked files ownerships are not changed unless following is set
+            # unpacked files perms are not changed at all
+            if [ -n "${S6_FILEURL_FIXOWNER_UNPACK}" ];
+            then
+                vecho "Fix owner (${defownr}) of files in ${dp}"
+                find "${dp}" \
+                    -mindepth ${S6_FILEURL_FIXOWNER_UNPACK_MINDEPTH:-1} \
+                    \! -user ${defownr%:*} \
+                    -exec \
+                        chown --no-dereference ${defownr} '{}' +;
+            fi;
+        else
+            vecho "File not found ${fp}";
+        fi;
+    }
+
+    url2file () {
+        local url="${1:? \$1 url is required}";
+        local fp="${2:? \$2 filepath is required}";
+        local nm="$(basename ${url})"; # file name in url
+
+        # no delimiter in envvar i.e. only url specified
+        if [ -z "${fp}" ] \
+        || [[ "${fp}" == "${url}" ]];
+        then
+            fp="${defdir}";
+
+            _mkdir "${fp}"; # ensure dir exists
+
+            if [[ "${nm}" == *.tar.* ]];
+            then
+                _getfile "${url}" "${tmpdir}${nm}"; # get file in /tmp/
+                _unpack "${tmpdir}${nm}" "${fp}"; # unpack in /defaults/
+            else
+                _getfile "${url}" "${fp}${nm}"; # get file in /defaults/
+                _setperm "${fp}${nm}";
+            fi;
+
+        # both url and filepath specified
+        # and filepath already exists as a dir
+        #   or filepath ends in / i.e. is a dir
+        elif [ -d "${fp}" ] \
+        || [[ "${fp:0-1}" == "/" ]];
+        then
+            # all dirnames should specify full path to dir, not relative
+            if [[ "${fp:0:1}" != "/" ]]; then fp="/${fp}"; fi;
+            # if ${fp} already exists as a dir, and user forgot ending /, ensure it ends with /
+            if [[ "${fp:0-1}" != "/" ]]; then fp="${fp}/"; fi;
+
+            _mkdir "${fp}"; # ensure dir exists
+
+            if [[ "${nm}" == *.tar.* ]];
+            then
+                _getfile "${url}" "${tmpdir}${nm}"; # get file in /tmp/
+                _unpack "${tmpdir}${nm}" "${fp}"; # unpack in filepath
+            else
+                _getfile "${url}" "${fp}${nm}"; # get file inside filepath
+                _setperm "${fp}${nm}";
+            fi;
+
+        # both url and filepath specified
+        # and filepath is (expected to be) a file
+        else
+            # all filenames should specify full path to file, not relative
+            if [[ "${fp:0:1}" != "/" ]]; then fp="/${fp}"; fi;
+
+            _mkdir "$(dirname ${fp})"; # ensure parent dir exists
+
+            if [[ "${nm}" == *.tar.* ]] && [[ "${fp}" != *.tar.* ]]; # unpack only if fp is not ending in .tar.gz
+            then
+                _getfile "${url}" "${tmpdir}${nm}"; # get file in /tmp/
+                _unpack "${tmpdir}${nm}" "$(dirname ${fp})"; # unpack in filepath parent dir
+
+            else # filepath contains .tar.gz, leave it packed
+                _getfile "${url}" "${fp}"; # get file inside filepath
+                _setperm "${fp}";
+            fi;
+        fi;
+    }
+
+    d="${S6_FILEURL_DELIMITER:-|}"; # default delimiter is |
+    for FILENAME in /run/s6/container_environment/*;
+    do
+        if [[ "${FILENAME##*/}" == "FILEURL_"* ]];
+        then
+            content="$(cat ${FILENAME})";
+            # format <url>|<filepath>
+            url="${content%$d*}"; # file url
+            fp="${content##*$d}"; # file path
+            url2file "${url}" "${fp}";
+        fi;
+    done;
+fi;
