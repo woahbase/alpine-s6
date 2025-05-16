@@ -1,0 +1,184 @@
+#!/usr/bin/with-contenv bash
+set -e
+
+vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
+if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
+
+# # requires ca-certificates to run update-ca-certificates
+# # requires nss-tools (certutil/pk12util) to add certificates to nssdb
+# # requires openssl to fetch certificates from sites
+# # depending on the image these packages may or may not be preinstalled
+# # for the latter add them in S6_NEEDED_PACKAGES to install at runtime
+# # or enable following line
+# apk add -U ca-certificates openssl nss-tools;
+
+S6_CACERTDIR="${S6_CACERTDIR:-/usr/local/share/ca-certificates}"; # local CAcertstore
+# S6_CACERT_INCLUDE_NONCA="${S6_CACERT_INCLUDE_NONCA:-false}"; # unset by default
+S6_CERTDIR="${S6_CERTDIR:-/usr/local/share/certificates}"; # local certstore
+# S6_CERTUPDATE=1; # unset by default, enabled when certs exists, enable to force refresh
+# TRUSTED_CERTS="/path/to/cert1.ca.crt /path/to/cert2.crt"; # unset by default
+# TRUSTED_SITES="example.com test.net:443 hello.world.local:64801"; # unset by default
+# NSS_DBDIR="${NSS_DBDIR:-${S6_USERHOME:-/home/alpine}/.pki/nssdb}"; # unset by default # e.g. /home/alpine/.pki/nssdb or /etc/pki/nssdb
+# NSS_DBDIR_OWNER="${NSS_DBDIR_OWNER:-alpine:alpine}"; # unset by default
+NSS_DEFAULT_DB_TYPE="${NSS_DEFAULT_DB_TYPE:-sql}"; # or dbm for legacy
+
+# gather certificates in S6_CERTDIR from locally available files
+if [ -n "${TRUSTED_CERTS}" ];
+then
+    mkdir -p "${S6_CERTDIR}";
+    oIFS=${IFS}; IFS=" ,"; # space or comma separated file/dirnames
+    for tcf in ${TRUSTED_CERTS[*]};
+    do
+        IFS=${oIFS};
+        if [ -f "${tcf}" ]; # atleast one cert file found
+        then
+            vecho "Copy certificate: ${tcf}";
+            cp "${tcf}" "${S6_CERTDIR}/$(basename ${tcf})";
+            S6_CERTUPDATE=1; # trigger an update after
+        elif [ -d "${tcf}" ] && [ "${tcf}" != "${S6_CERTDIR}" ]; # add all certs in this dir
+        then
+            for tcff in $(find "${tcf}" -mindepth 1 -type f 2>/dev/null | sort -u);
+            do
+                vecho "Copy certificate: ${tcff}";
+                cp "${tcff}" "${S6_CERTDIR}/$(basename ${tcff})";
+                S6_CERTUPDATE=1; # trigger an update after
+            done;
+        fi;
+    done;
+    IFS=${oIFS};
+fi;
+
+# get certificates from remote host(s) into S6_CERTDIR
+if [ -n "${TRUSTED_SITES}" ] \
+&& which openssl >/dev/null 2>&1; # requires openssl to be installed
+then
+    mkdir -p "${S6_CERTDIR}";
+    oIFS=${IFS}; IFS=" ,"; # space or comma separated hostnames
+    for tcr in ${TRUSTED_SITES[*]};
+    do
+        IFS=${oIFS};
+        vecho "Get certificate: ${tcr}";
+        tsh="${tcr%:*}"; # hostname
+        pt="${tcr##*:}"; # port
+        # port may be empty (example.com:)
+        # or same as host  (example.com)
+        if [ -z "$pt" ] || [[ "$tsh" == "$pt" ]]; then pt="443"; fi;
+        true \
+        | openssl s_client -connect "${tsh}:${pt}" 2> /dev/null \
+        | openssl x509 > "${S6_CERTDIR}/${tsh}.crt" \
+        || true;
+        if [ -f "${S6_CERTDIR}/${tsh}.crt" ]; # atleast one cert added
+        then
+            S6_CERTUPDATE=1; # trigger an update after
+        fi;
+    done;
+    IFS=${oIFS};
+fi;
+
+_isCAcert () { # check if certificate is actually a CACert
+    local cf="${1:? \$1 certificate filepath is required}";
+    if which openssl >/dev/null 2>&1; # requires openssl
+    then
+        openssl x509 -in "${cf}" -noout -text 2>/dev/null | grep -qw 'CA:TRUE' 2>/dev/null;
+        return $?;
+    else # just check if 'ca' in filename
+        case ${cf} in
+            *-ca.crt|*.ca.crt|*.cacert|*.ca.cer) return 0;;
+            *) return 1;;
+        esac;
+    fi;
+}
+
+if [ -n "${S6_CERTUPDATE}" ];
+then
+    # ensure only CA certificates merge with update-ca-certificates
+    # move CAcerts from S6_CERTDIR to S6_CACERTDIR
+    # non-CAcerts stay in S6_CERTDIR
+    mkdir -p "${S6_CACERTDIR}";
+    for ct in $(find "${S6_CERTDIR}" -maxdepth 1 -mindepth 1 -type f 2>/dev/null | sort -u);
+    do
+        cnm="$(basename ${ct})";
+        if _isCAcert "${ct}";
+        then
+            vecho "Move CA-certificate ${cnm%%[.-]c[aer]*}.ca.crt";
+            mv "${ct}" "${S6_CACERTDIR}/${cnm%%[.-]c[aer]*}.ca.crt";
+
+        # set to 'true' to enable including non-ca-certificate
+        # files into root certificate store. Rather INSECURE, but
+        # gets rid of most 'unable to get local issuer
+        # certificate' errors during develop/test. Use with
+        # CAUTION, definitely NOT IN PRODUCTION and only with
+        # certificates that you really trust, but for some odd
+        # reason cannot provide the issuer-CA-Cert for them, or
+        # have signed them yourself.
+        elif [ "${S6_CACERT_INCLUDE_NONCA^^}" == "TRUE" ];
+        then
+            vecho "Move !!Non-CA-certificate!! ${cnm%%[.-]c[aer]*}.crt into Trusted CA-Certificate store";
+            mv "${ct}" "${S6_CACERTDIR}/${cnm%%[.-]c[aer]*}.crt";
+        fi;
+    done;
+
+    if which update-ca-certificates >/dev/null 2>&1; # requires ca-certificates
+    then
+        vecho "Update root-certificates.";
+        update-ca-certificates || true; # don't fail
+    else
+        vecho "Require 'ca-certificates' to update root CA-Certificates."
+    fi;
+
+    if [ -n "${NSS_DBDIR}" ] \
+    && which certutil >/dev/null 2>&1; # requires nss-tools
+    then
+        mkdir -p "${NSS_DBDIR}";
+        for ncf in $(find "${S6_CACERTDIR}" "${S6_CERTDIR}" -maxdepth 1 -mindepth 1 -type f 2>/dev/null | sort -u);
+        do
+            nnm="$(basename ${ncf})";
+            case ${nnm} in
+                *-ca.crt|*.ca.crt|*.cacert|*.ca.cer)
+                    vecho "Load NSS CA certificate: ${nnm}";
+                    certutil -A -d "${NSS_DEFAULT_DB_TYPE}:${NSS_DBDIR}" \
+                        -i "${ncf}" -n "${nnm%[.-]ca*}" \
+                        -t "${NSS_CATRUST:-CT,C,C,}" \
+                        || true; # don't fail
+                    ;;
+                *.crt|*.cert|*.cer)
+                    vecho "Load NSS certificate: ${nnm}";
+                    certutil -A -d "${NSS_DEFAULT_DB_TYPE}:${NSS_DBDIR}" \
+                        -i "${ncf}" -n "${nnm%.c[er]*}" \
+                        -t "${NSS_TRUST:-P,P,,}" \
+                        || true; # don't fail
+                    ;;
+                *.pfx|*.p12|*.pkcs12)
+                    vecho "Load NSS certificate: ${nnm}";
+                    pk12util -d "${NSS_DEFAULT_DB_TYPE}:${NSS_DBDIR}" \
+                        -i "${ncf}" \
+                        || true; # don't fail
+                    ;;
+                *-ca.crt.rm|*.ca.crt.rm|*.cacert.rm|*.ca.rm|.cer*.crt.rm|*.cert.rm|*.cer.rm)
+                    # for removal,
+                    # files dont have to be real certificate files,
+                    # as we only need to match the nickname to remove
+                    # for updates,
+                    # ensure .rm file precedes actual certificate in load-dir
+                    # e.g. 0-cert1.crt.rm 1-cert1.crt
+                    vecho "Remove NSS certificate: ${nnm}";
+                    certutil -D -d "${NSS_DEFAULT_DB_TYPE}:${NSS_DBDIR}" \
+                        -n "${nnm%%[.-]c[aer]*.rm}" \
+                        || true; # don't fail
+                    ;;
+                *) vecho "Skip: ${nnm}";
+            esac;
+        done;
+        if [ -n "${NSS_DB_LIST}" ]; # list all installed certs
+        then certutil -d "${NSS_DEFAULT_DB_TYPE}:${NSS_DBDIR}" -L -h all;
+        fi;
+        if [[ "${NSS_DBDIR}" == ${S6_USERHOME:-/home/alpine}/* ]]; # dir in user-home
+        then NSS_DBDIR_OWNER="${NSS_DBDIR_OWNER:-${S6_USER:-alpine}:${PGID:-1000}}";
+        fi;
+        if [ -n "${NSS_DBDIR_OWNER}" ]; # set nssdb-dir permissions
+        then
+            vecho "Set ${NSS_DBDIR_OWNER} permissions on ${NSS_DBDIR}";
+            chown -R ${NSS_DBDIR_OWNER} "${NSS_DBDIR}";
+        fi;
+    fi;
+fi;

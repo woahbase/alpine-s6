@@ -102,20 +102,22 @@ OTHERFLAGS := \
 	# --user $(PUID):$(PGID) \
 	# --workdir /home/alpine \
 	# -e TZ=Asia/Kolkata \
-	# /
+	# \
 	# -e S6_VERBOSITY=0 \
+	# \
 	# -e S6_NEEDED_PACKAGES="htop iftop" \
+	# \
 	# -e S6_USER=alpine \
 	# -e S6_USERGROUPS=tty,video \
 	# -e S6_USERHOME=/home/alpine \
 	# -e S6_USERPASS=insecurebydefault \
-	# /
+	# \
 	# -e HGID_VIDEO=995 \
 	# -e HGID_test=5005 \
 	# -e S6_USERGROUPS=test,video \
-	# /
+	# \
 	# -e SECRET__VAR_TEST="/secrets/secret_var_test" \
-	# /
+	# \
 	# -e FILEURL_readme="https://raw.githubusercontent.com/woahbase/alpine-s6/refs/heads/master/README.md|/srv/" \
 	# -e FILEURL_readme="https://raw.githubusercontent.com/woahbase/alpine-s6/refs/heads/master/README.md|/srv/dont-readme.md" \
 	# -e FILEURL_src_targz="https://github.com/woahbase/alpine-s6/archive/refs/heads/master.tar.gz|/srv/" \
@@ -127,6 +129,17 @@ OTHERFLAGS := \
 	# -e S6_FILEURL_FIXOWNER_UNPACK=1 \
 	# -e S6_FILEURL_STRIPCOMPONENTS=0 \
 	# -e S6_FILEURL_TMPDIR=/tmp/ \
+	# \
+	# -e S6_NEEDED_PACKAGES="ca-certificates nss-tools openssl" \
+	# -e TRUSTED_CERTS="/path/to/cert1.ca.crt /path/to/cert2.crt" \
+	# -e TRUSTED_SITES="example.com test.net:443 hello.world.local:64801" \
+	# -e S6_CACERT_INCLUDE_NONCA=true \
+	# -e S6_CERTUPDATE=1 \
+	# -e NSS_DBDIR="/home/alpine/.pki/nssdb" \
+	# -e NSS_DBDIR_OWNER="$(PGID):$(PUID)" \
+	# -e NSS_CATRUST="CT,C,C," \
+	# -e NSS_TRUST="P,P,," \
+	# -e NSS_DB_LIST=1 \
 	#
 # all runtime flags combined here
 RUNFLAGS   := \
