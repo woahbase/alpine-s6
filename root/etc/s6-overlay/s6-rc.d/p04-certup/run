@@ -2,7 +2,6 @@
 set -e
 
 vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
-if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
 
 # # requires ca-certificates to run update-ca-certificates
 # # requires nss-tools (certutil/pk12util) to add certificates to nssdb
@@ -22,10 +21,22 @@ S6_CERTDIR="${S6_CERTDIR:-/usr/local/share/certificates}"; # local certstore
 # NSS_DBDIR_OWNER="${NSS_DBDIR_OWNER:-alpine:alpine}"; # unset by default
 NSS_DEFAULT_DB_TYPE="${NSS_DEFAULT_DB_TYPE:-sql}"; # or dbm for legacy
 
+_mkdir () {
+    local dp="${1:? \$1 dirpath is required}";
+    if [ -n "${dp}" ] \
+    && [[ "${dp}" != "." ]] \
+    && [[ "${dp}" != "/" ]];
+    then
+        mkdir -p "${dp}";
+        if [ $? != 0 ]; then vecho "Error creating directory: ${dp}"; exit 1; fi;
+        if [ ! -w "${dp}" ]; then vecho "Directory not writable"; exit 1; fi;
+    fi;
+}
+
 # gather certificates in S6_CERTDIR from locally available files
 if [ -n "${TRUSTED_CERTS}" ];
 then
-    mkdir -p "${S6_CERTDIR}";
+    _mkdir "${S6_CERTDIR}";
     oIFS=${IFS}; IFS=" ,"; # space or comma separated file/dirnames
     for tcf in ${TRUSTED_CERTS[*]};
     do
@@ -52,7 +63,7 @@ fi;
 if [ -n "${TRUSTED_SITES}" ] \
 && which openssl >/dev/null 2>&1; # requires openssl to be installed
 then
-    mkdir -p "${S6_CERTDIR}";
+    _mkdir "${S6_CERTDIR}";
     oIFS=${IFS}; IFS=" ,"; # space or comma separated hostnames
     for tcr in ${TRUSTED_SITES[*]};
     do
@@ -94,7 +105,7 @@ then
     # ensure only CA certificates merge with update-ca-certificates
     # move CAcerts from S6_CERTDIR to S6_CACERTDIR
     # non-CAcerts stay in S6_CERTDIR
-    mkdir -p "${S6_CACERTDIR}";
+    _mkdir "${S6_CACERTDIR}";
     for ct in $(find "${S6_CERTDIR}" -maxdepth 1 -mindepth 1 -type f 2>/dev/null | sort -u);
     do
         cnm="$(basename ${ct})";
@@ -118,18 +129,19 @@ then
         fi;
     done;
 
-    if which update-ca-certificates >/dev/null 2>&1; # requires ca-certificates
+    if which update-ca-certificates >/dev/null 2>&1 \
+    && [ "X${EUID}" == "X0" ]; # requires root # requires ca-certificates
     then
         vecho "Update root-certificates.";
         update-ca-certificates || true; # don't fail
     else
-        vecho "Require 'ca-certificates' to update root CA-Certificates."
+        vecho "Skip updating root CA-Certificates."
     fi;
 
     if [ -n "${NSS_DBDIR}" ] \
     && which certutil >/dev/null 2>&1; # requires nss-tools
     then
-        mkdir -p "${NSS_DBDIR}";
+        _mkdir "${NSS_DBDIR}";
         for ncf in $(find "${S6_CACERTDIR}" "${S6_CERTDIR}" -maxdepth 1 -mindepth 1 -type f 2>/dev/null | sort -u);
         do
             nnm="$(basename ${ncf})";

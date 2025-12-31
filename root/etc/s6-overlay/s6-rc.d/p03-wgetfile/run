@@ -2,7 +2,6 @@
 set -e
 
 vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
-if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
 
 # for every FILEURL_envvariable
 # fetch url to specified filepath (both in value separated by |)
@@ -10,6 +9,8 @@ if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; ex
 # unpack if file is an archive (skip if filepath is also an archive)
 if find /run/s6/container_environment/FILEURL_* -maxdepth 1 > /dev/null 2>&1;
 then
+    # if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
+
     defdir="${S6_FILEURL_DEFDIR:-/defaults/}";
     # must begin and end with a /
     if [[ "${defdir:0:1}" != "/" ]]; then defdir="/${defdir}"; fi;
@@ -54,13 +55,16 @@ then
         if [ -n "${dp}" ] \
         && [[ "${dp}" != "." ]] \
         && [[ "${dp}" != "/" ]];
-        then mkdir -p "${dp}" || exit 1;
+        then
+            mkdir -p "${dp}";
+            if [ $? != 0 ]; then vecho "Error creating directory: ${dp}"; exit 1; fi;
+            if [ ! -w "${dp}" ]; then vecho "Directory not writable"; exit 1; fi;
         fi;
     }
 
     _setperm () {
         local fp="${1:? \$1 filepath is required}";
-        local defownr="${S6_FILEURL_DEFOWNER:-root:root}"; # default owner/group for downloaded file
+        local defownr="${S6_FILEURL_DEFOWNER:-$(id -u):$(id -g)}"; # default owner/group for downloaded file
         chown ${defownr} "${fp}";
         local defperm="${S6_FILEURL_DEFPERMS:-0644}"; # default permission for downloaded file
         chmod ${defperm} "${fp}";
@@ -69,7 +73,7 @@ then
     _unpack () {
         local fp="${1:? \$1 filepath is required}";
         local dp="${2:? \$2 destpath is required}";
-        local defownr="${S6_FILEURL_DEFOWNER:-root:root}"; # default owner for downloaded file
+        local defownr="${S6_FILEURL_DEFOWNER:-$(id -u):$(id -g)}"; # default owner/group for downloaded file
         if [ -f "${fp}" ];
         then
             tar -xf "${fp}" -C "${dp}" --strip-components=${S6_FILEURL_STRIPCOMPONENTS:-0} || exit 1;

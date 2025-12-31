@@ -2,12 +2,12 @@
 set -e
 
 vecho () { if [ "${S6_VERBOSITY:-1}" -gt 0 ]; then echo "[$0] $@"; fi; }
-if [ "X${EUID}" != "X0" ]; then vecho "Skipped. Reason: no root privileges."; exit 0; fi;
 
 # update in-container group gid(s) to match with gid in host
 # if set via environment variables HGID_<groupname>
 # if group does not exist, create it
-if find /run/s6/container_environment/HGID_* -maxdepth 1 > /dev/null 2>&1;
+if find /run/s6/container_environment/HGID_* -maxdepth 1 > /dev/null 2>&1 \
+&& [ "X${EUID}" == "X0" ]; # requires root
 then
     for FILENAME in /run/s6/container_environment/*;
     do
@@ -44,8 +44,10 @@ PGID=${PGID:-1000};
 # S6_USERGROUPS=""; # comma-separated groups list eg. root,docker,wheel . passed at runtime, if required
 # S6_USERPASS=""; # passed at runtime, if required
 
-
-if [ -n "${S6_USER}" ] && [ "${S6_USER}" != "root" ]; # unset this to disable the following block
+# unset ${S6_USER} to disable the following block
+if [ -n "${S6_USER}" ] \
+&& [ "${S6_USER}" != "root" ] \
+&& [ "X${EUID}" == "X0" ]; # requires root
 then
     # if user exists
     S6_USERHOME="${S6_USERHOME:-/home/$S6_USER}"; # set in Dockerfile, set in child images/runtime if needed
@@ -82,13 +84,13 @@ then
     else # create user
         vecho "Creating user ${S6_USER}(${PUID}/${PGID}) with user-home at ${S6_USERHOME}";
         addgroup -g ${PGID} -S ${S6_USER};
-        adduser -u ${PUID} -G ${S6_USER} -h ${S6_USERHOME} -D ${S6_USER}
+        adduser -u ${PUID} -G ${S6_USER} -h ${S6_USERHOME} -D ${S6_USER};
     fi;
 
     # if USERGROUPS is set, add USER to comma-separated groups, groups MUST exist
     if [ -n "${S6_USERGROUPS}" ];
     then
-	    usermod -a -G ${S6_USERGROUPS} ${S6_USER};
+        usermod -a -G ${S6_USERGROUPS} ${S6_USER};
         vecho "Added ${S6_USER}(${PUID}/${PGID}) to groups: ${S6_USERGROUPS}.";
     fi;
 
