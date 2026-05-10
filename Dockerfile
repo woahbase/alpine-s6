@@ -23,7 +23,12 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6VERSION
 COPY root/ /
 #
 RUN set -xe \
-    && apk add --no-cache --purge -uU shadow tar xz \
+    && apk add --no-cache --purge -uU \
+        ca-certificates \
+        drill \
+        shadow \
+        tar \
+        xz \
     && echo "using s6: ${S6VERSION} ${S6ARCH}" \
     && tar -C / -Jxpf /tmp/s6-overlay-${S6ARCH}.tar.xz \
     && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
